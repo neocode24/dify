@@ -103,6 +103,31 @@ services:
       ENABLE_WEBSITE_WATERCRAWL: ${ENABLE_WEBSITE_WATERCRAWL:-true}
       NEXT_PUBLIC_ENABLE_SINGLE_DOLLAR_LATEX: ${NEXT_PUBLIC_ENABLE_SINGLE_DOLLAR_LATEX:-false}
 
+  # A2A Protocol Gateway
+  a2a-gateway:
+    build:
+      context: ../a2a-gateway
+      dockerfile: Dockerfile
+    image: langgenius/dify-a2a-gateway:latest
+    restart: always
+    ports:
+      - "${A2A_GATEWAY_PORT:-8080}:8080"
+    environment:
+      DIFY_API_URL: http://api:5001
+      DIFY_API_KEY: ${A2A_DIFY_API_KEY}
+      PORT: 8080
+      HOST: 0.0.0.0
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    networks:
+      - default
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # The postgres database.
   db:
     image: postgres:15-alpine
