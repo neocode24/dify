@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from models.a2a import A2ARequest, A2AMessage, A2AChatParams, A2AError
+from models.a2a import A2AChatParams, A2AError, A2AMessage, A2ARequest
 from models.dify import DifyChatRequest, DifySSEEvent
 
 

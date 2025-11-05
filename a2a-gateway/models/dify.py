@@ -1,5 +1,6 @@
-from pydantic import BaseModel
 from typing import Any, Optional
+
+from pydantic import BaseModel, ConfigDict
 
 
 class DifyChatRequest(BaseModel):
@@ -34,6 +35,5 @@ class DifySSEEvent(BaseModel):
     code: Optional[str] = None
     message: Optional[str] = None
 
-    # 기타 필드를 처리하기 위한 설정
-    class Config:
-        extra = "allow"
+    # 기타 필드를 처리하기 위한 설정 (Pydantic v2)
+    model_config = ConfigDict(extra="allow")
