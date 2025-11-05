@@ -1,4 +1,5 @@
 import json
+import logging
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
@@ -6,9 +7,14 @@ from fastapi.responses import StreamingResponse
 from config import settings
 from models.a2a import A2ARequest
 from services.dify_client import DifyClient
+from services.session_manager import SessionManager
 from services.translator import A2ADifyTranslator
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# SessionManager 전역 인스턴스 (앱 수명주기 동안 유지)
+session_manager = SessionManager()
 
 
 @router.post("/a2a")
@@ -27,18 +33,24 @@ async def handle_a2a_chat(request: A2ARequest):
       }
     }
     """
-    # 1. Dify Client 초기화
-    dify = DifyClient(base_url=settings.dify_api_url, api_key=settings.dify_api_key)
-
-    # 2. A2A → Dify 변환
-    translator = A2ADifyTranslator()
+    # A2A → Dify 변환 (SessionManager 주입)
+    translator = A2ADifyTranslator(session_manager=session_manager)
     dify_request = translator.a2a_to_dify(request)
 
-    # 3. 스트리밍 응답 생성
+    # User ID 추출 (conversation_id 매핑 저장용)
+    user_id = dify_request.user
+
+    # 스트리밍 응답 생성
     async def event_generator():
+        # DifyClient를 generator 내부에서 생성하여 lifecycle 관리
+        dify = DifyClient(base_url=settings.dify_api_url, api_key=settings.dify_api_key)
         try:
             async for dify_event in dify.stream_chat(dify_request):
-                # 4. Dify SSE → A2A JSON-RPC 변환
+                # 첫 conversation_id 수신 시 Redis 저장
+                if dify_event.conversation_id and dify_event.event == "message":
+                    translator.store_conversation_user(dify_event.conversation_id, user_id)
+
+                # Dify SSE → A2A JSON-RPC 변환
                 a2a_response = translator.dify_to_a2a(dify_event, request.id)
 
                 if a2a_response:

@@ -1,6 +1,6 @@
 import pytest
 
-from models.a2a import A2ARequest, A2AMessage, A2AChatParams
+from models.a2a import A2AChatParams, A2AMessage, A2ARequest
 from models.dify import DifySSEEvent
 from services.translator import A2ADifyTranslator
 
@@ -10,19 +10,21 @@ class TestA2ADifyTranslator:
     """프로토콜 변환기 단위 테스트"""
 
     def test_a2a_to_dify_single_message(self):
-        """A2A → Dify 변환: 단일 메시지"""
+        """A2A → Dify 변환: 단일 메시지 (Redis 없이)"""
         a2a_request = A2ARequest(
             id="test-1",
             method="chat.create",
             params=A2AChatParams(messages=[A2AMessage(role="user", content="안녕하세요")]),
         )
 
-        translator = A2ADifyTranslator()
+        # Redis 없이 실행 (fallback 모드)
+        translator = A2ADifyTranslator(session_manager=None)
         dify_request = translator.a2a_to_dify(a2a_request)
 
         assert dify_request.query == "안녕하세요"
         assert dify_request.response_mode == "streaming"
-        assert dify_request.user.startswith("a2a-user-")
+        # Redis 없을 때는 fallback user_id 사용
+        assert dify_request.user == "a2a-gateway-user"
 
     def test_a2a_to_dify_with_conversation_id(self):
         """A2A → Dify 변환: conversation_id 포함"""
@@ -106,21 +108,40 @@ class TestA2ADifyTranslator:
         # agent_thought는 None 반환
         assert a2a_response is None
 
-    def test_user_id_generation_consistency(self):
-        """같은 request_id는 같은 user_id 생성"""
-        translator = A2ADifyTranslator()
+    def test_user_id_determination_without_redis(self):
+        """Redis 없을 때 user_id 결정 (fallback)"""
+        from services.session_manager import SessionManager
 
-        user_id_1 = translator._generate_user_id("test-123")
-        user_id_2 = translator._generate_user_id("test-123")
+        # SessionManager가 disabled 상태일 때
+        a2a_request = A2ARequest(
+            id="test-new",
+            method="chat.create",
+            params=A2AChatParams(messages=[A2AMessage(role="user", content="Hello")]),
+        )
+
+        translator = A2ADifyTranslator(session_manager=None)
+        user_id = translator._determine_user_id(a2a_request, None)
+
+        # Fallback user_id 사용
+        assert user_id == "a2a-gateway-user"
+
+    def test_user_id_generation_consistency(self):
+        """SessionManager: 같은 identifier는 같은 user_id 생성"""
+        from services.session_manager import SessionManager
+
+        session_mgr = SessionManager()
+        user_id_1 = session_mgr.generate_user_id("test-123")
+        user_id_2 = session_mgr.generate_user_id("test-123")
 
         assert user_id_1 == user_id_2
         assert user_id_1.startswith("a2a-user-")
 
     def test_user_id_generation_different(self):
-        """다른 request_id는 다른 user_id 생성"""
-        translator = A2ADifyTranslator()
+        """SessionManager: 다른 identifier는 다른 user_id 생성"""
+        from services.session_manager import SessionManager
 
-        user_id_1 = translator._generate_user_id("test-123")
-        user_id_2 = translator._generate_user_id("test-456")
+        session_mgr = SessionManager()
+        user_id_1 = session_mgr.generate_user_id("test-123")
+        user_id_2 = session_mgr.generate_user_id("test-456")
 
         assert user_id_1 != user_id_2
