@@ -236,3 +236,11 @@ scripts/stress-test/reports/
 # mcp
 .playwright-mcp/
 .serena/
+# Claude Code settings
+.claude/settings.local.json
+
+# Backup files
+*.bak
+*.bak[0-9]
+*.bak[0-9][0-9]
+docker/*.bak*
