@@ -1,11 +1,11 @@
 # Dify A2A Gateway
 
-[![Tests](https://img.shields.io/badge/tests-60%20passed-success)](tests/)
+[![Tests](https://img.shields.io/badge/tests-52%20passed-success)](tests/)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)](pyproject.toml)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green)](https://fastapi.tiangolo.com/)
-[![Version](https://img.shields.io/badge/version-0.3.0-blue)](main.py)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue)](main.py)
 
-A2A Protocol gateway for Dify - Task 기반 표준 준수 대화 에이전트 통신 게이트웨이
+A2A Protocol gateway for Dify - 완전한 A2A 표준 준수 대화 에이전트 통신 게이트웨이
 
 ## 개요
 
@@ -13,18 +13,58 @@ Dify의 Chat API를 [A2A Protocol](https://a2a-protocol.org/) (Agent-to-Agent JS
 
 ## ✨ 주요 특징
 
+### Phase 2.1: A2A 표준 완전 준수 (v0.4.0) 🎯
+- **A2A 표준 100% 준수**: message.send, Task API, SSE 이벤트 모두 표준 준수
+- **Parts 기반 Message**: TextPart, FilePart, DataPart 지원
+- **Task.kind 필드**: A2A 표준 타입 판별자 추가
+- **TaskStatusUpdateEvent**: A2A 표준 상태 업데이트 이벤트
+- **TaskArtifactUpdateEvent**: A2A 표준 결과물 업데이트 이벤트
+
 ### Phase 2: Task API 지원 (v0.3.0)
 - **Task 기반 아키텍처**: 모든 대화가 Task 객체로 관리됨
 - **Context 지속성**: Task metadata에 Dify conversation_id 저장으로 다중 턴 대화 완벽 지원
 - **Task API 엔드포인트**: `tasks/get`, `tasks/list`, `tasks/cancel`
-- **InMemory Task Store**: Thread-safe 작업 저장소 (Phase 3에서 Redis/DB로 확장 예정)
-
-### 표준 준수
-- **A2A Protocol 완전 준수**: `message.send`, `contextId`, Task API
-- **Multi-modal 준비**: Parts 구조 (TextPart, FilePart, DataPart) 지원
-- **Artifact 시스템**: Task 실행 결과물 저장 및 조회
+- **InMemory Task Store**: Thread-safe 작업 저장소
 
 ## ⚠️ Breaking Changes
+
+### v0.4.0 (Phase 2.1 - A2A 표준 준수)
+
+**message.send 요청 형식 변경 (Parts 기반):**
+```diff
+{
+  "jsonrpc": "2.0",
+  "id": "1",
+  "method": "message.send",
+  "params": {
+-   "messages": [{"role": "user", "content": "Hello"}],
++   "messages": [{"role": "user", "parts": [{"type": "text", "text": "Hello"}]}],
+-   "contextId": "session-123",
+-   "stream": true
++   "configuration": {"stream": true},
++   "contextId": "session-123"  // 선택적 (확장 필드)
+  }
+}
+```
+
+**SSE 이벤트 형식 변경 (A2A 표준):**
+```diff
+- {"result": {"type": "content_delta", "delta": "Hello", "contextId": "...", "taskId": "..."}}
+- {"result": {"type": "message_end", "contextId": "...", "taskId": "..."}}
++ {"result": {"type": "task_status_update", "taskId": "...", "status": "completed", "contextId": "..."}}
++ {"result": {"type": "task_artifact_update", "taskId": "...", "artifact": {...}, "contextId": "..."}}
+```
+
+**Task 모델 변경:**
+```diff
+{
+  "id": "task-abc-123",
+  "contextId": "session-123",
+  "status": "completed",
++ "kind": "task",  // A2A 표준 타입 판별자
+  ...
+}
+```
 
 ### v0.3.0 (Phase 2 - Task API)
 

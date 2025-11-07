@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Dify A2A Gateway",
-    version="0.3.0",  # Phase 2: Task API 추가
-    description="A2A Protocol gateway for Dify with Task API support",
+    version="0.4.0",  # Phase 2.1: A2A 표준 준수
+    description="A2A Protocol gateway for Dify with full A2A standard compliance",
 )
 
 # CORS 설정
@@ -41,7 +41,7 @@ async def health():
     return {
         "status": "ok",
         "service": "dify-a2a-gateway",
-        "version": "0.3.0",  # Phase 2
+        "version": "0.4.0",  # Phase 2.1
     }
 
 

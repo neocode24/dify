@@ -5,19 +5,21 @@ from typing import Any, Literal, Optional, Union
 from pydantic import BaseModel, Field
 
 
-class A2AMessage(BaseModel):
-    """A2A 프로토콜 메시지"""
+class MessageSendConfiguration(BaseModel):
+    """A2A message.send 설정"""
 
-    role: Literal["user", "agent"]
-    content: str
-
-
-class A2AChatParams(BaseModel):
-    """A2A message.send 파라미터"""
-
-    messages: list[A2AMessage]
-    contextId: Optional[str] = None
     stream: bool = True
+    # 추가 설정 옵션 (향후 확장 가능)
+
+
+class MessageSendParams(BaseModel):
+    """A2A message.send 파라미터 (표준 준수 + 확장)"""
+
+    task: Optional["Task"] = None  # 기존 Task에 메시지 추가 (선택)
+    messages: list["Message"]  # Parts 기반 Message (forward reference)
+    configuration: Optional[MessageSendConfiguration] = None
+    # 확장 필드 (A2A 표준 외)
+    contextId: Optional[str] = None  # 호환성 유지를 위한 contextId 지원
 
 
 class A2ARequest(BaseModel):
@@ -25,8 +27,8 @@ class A2ARequest(BaseModel):
 
     jsonrpc: str = "2.0"
     id: str | int
-    method: str  # "chat.create", "chat.listMessages" 등
-    params: A2AChatParams
+    method: str  # "message.send", "tasks/get" 등
+    params: MessageSendParams
 
 
 class A2AResponse(BaseModel):
@@ -121,6 +123,7 @@ class Task(BaseModel):
     id: str  # task-{uuid}
     contextId: str  # 세션 식별자
     status: TaskStatus
+    kind: Literal["task"] = "task"  # A2A 표준: 타입 판별자
     history: list[Message] = Field(default_factory=list)
     artifacts: list[Artifact] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)  # dify_conversation_id 저장
@@ -128,6 +131,29 @@ class Task(BaseModel):
     updatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completedAt: Optional[datetime] = None
     error: Optional[str] = None
+
+
+# ============================================================================
+# A2A SSE Event Models (Phase 2.1)
+# ============================================================================
+
+
+class TaskStatusUpdateEvent(BaseModel):
+    """Task 상태 업데이트 이벤트 (A2A 표준)"""
+
+    type: Literal["task_status_update"] = "task_status_update"
+    taskId: str
+    status: TaskStatus
+    contextId: Optional[str] = None
+
+
+class TaskArtifactUpdateEvent(BaseModel):
+    """Task Artifact 업데이트 이벤트 (A2A 표준)"""
+
+    type: Literal["task_artifact_update"] = "task_artifact_update"
+    taskId: str
+    artifact: Artifact
+    contextId: Optional[str] = None
 
 
 # ============================================================================
@@ -170,3 +196,12 @@ class TaskRequest(BaseModel):
     id: str | int
     method: str  # "tasks/create", "tasks/get", "tasks/list", "tasks/cancel"
     params: Union[TaskCreateParams, TaskGetParams, TaskListParams, TaskCancelParams]
+
+
+# ============================================================================
+# Backward Compatibility Aliases (Phase 1 → Phase 2.1)
+# ============================================================================
+
+# Phase 1에서 사용하던 클래스들의 alias (테스트 호환성)
+A2AChatParams = MessageSendParams
+A2AMessage = Message  # 완전히 동일하지 않으므로 주의 필요
