@@ -4,14 +4,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routers import chat
+from routers import chat, tasks
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Dify A2A Gateway",
-    version="0.1.0",
-    description="A2A Protocol gateway for Dify",
+    version="0.3.0",  # Phase 2: Task API 추가
+    description="A2A Protocol gateway for Dify with Task API support",
 )
 
 # CORS 설정
@@ -25,6 +25,7 @@ app.add_middleware(
 
 # 라우터 등록
 app.include_router(chat.router)
+app.include_router(tasks.router)
 
 
 @app.on_event("startup")
@@ -40,7 +41,7 @@ async def health():
     return {
         "status": "ok",
         "service": "dify-a2a-gateway",
-        "version": "0.1.0",
+        "version": "0.3.0",  # Phase 2
     }
 
 
