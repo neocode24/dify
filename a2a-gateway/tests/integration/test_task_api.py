@@ -68,7 +68,7 @@ class TestTaskBasedMessageSend:
     async def test_message_send_with_context_preserves_conversation(self):
         """동일한 contextId로 두 번 요청 시 conversation_id 재사용 (Phase 2.1)"""
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            # 첫 번째 요청 (Parts 기반)
+            # 첫 번째 요청 (Parts 기반) - contextId 명시
             request1 = {
                 "jsonrpc": "2.0",
                 "id": "test-2",
@@ -80,6 +80,7 @@ class TestTaskBasedMessageSend:
                             "parts": [{"type": "text", "text": "My name is Alice"}],
                         }
                     ],
+                    "contextId": "session-conversation-test",  # 명시적 전달
                     "configuration": {"stream": True},
                 },
             }
@@ -99,13 +100,11 @@ class TestTaskBasedMessageSend:
             task1 = task_store.get(task_id_1)
             assert task1 is not None
             assert "dify_conversation_id" in task1.metadata
+            assert task1.contextId == "session-conversation-test"
 
-            dify_conv_id = task1.metadata["dify_conversation_id"]
-            context_id_1 = task1.contextId
+            dify_conv_id_1 = task1.metadata["dify_conversation_id"]
 
-            # 두 번째 요청 (같은 contextId)
-            # Phase 2.1에서는 task 재사용 대신 자동 생성되므로 첫 Task에서 contextId 추출
-            # 그러나 현재 구현은 contextId를 자동 생성하므로 새 Task 생성됨
+            # 두 번째 요청 (동일한 contextId)
             request2 = {
                 "jsonrpc": "2.0",
                 "id": "test-3",
@@ -117,6 +116,7 @@ class TestTaskBasedMessageSend:
                             "parts": [{"type": "text", "text": "What is my name?"}],
                         }
                     ],
+                    "contextId": "session-conversation-test",  # 동일한 값 전달
                     "configuration": {"stream": True},
                 },
             }
@@ -124,7 +124,7 @@ class TestTaskBasedMessageSend:
             response2 = await client.post("/a2a", json=request2)
             assert response2.status_code == 200
 
-            # 두 번째 Task는 새로운 contextId (자동 생성)
+            # 두 번째 Task도 동일한 contextId 사용
             events2 = []
             for line in response2.text.strip().split("\n"):
                 if line.startswith("data: "):
@@ -133,8 +133,17 @@ class TestTaskBasedMessageSend:
             task_id_2 = events2[0]["result"]["taskId"]
             task2 = task_store.get(task_id_2)
 
-            # 현재 구현에서는 contextId 자동 생성되므로 다름
-            assert task2.contextId != context_id_1
+            # 검증: 동일한 contextId 사용
+            assert task2.contextId == "session-conversation-test"
+            assert task2.contextId == task1.contextId
+
+            # 검증: 두 번째 Task가 첫 번째 conversation_id를 재사용했는지
+            # (TaskManager._convert_to_dify_request 로직 검증)
+            # 주의: task2.metadata에는 새로운 conversation_id가 저장됨
+            # 하지만 Dify API 호출 시 task1의 conversation_id를 사용했어야 함
+            # 이는 Dify 응답으로 확인 가능 (실제 Dify가 있어야 함)
+            # 통합 테스트에서는 두 Task가 같은 contextId를 사용했는지만 검증
+            assert task2.metadata.get("dify_conversation_id") is not None
 
     @pytest.mark.asyncio
     async def test_message_send_without_context_creates_auto_context(self):
@@ -336,16 +345,21 @@ class TestTaskListAPI:
     async def test_list_tasks_pagination(self):
         """페이징 테스트"""
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            # 5개 Task 생성
+            # 5개 Task 생성 (동일한 contextId)
             for i in range(5):
                 create_request = {
                     "jsonrpc": "2.0",
                     "id": f"create-{i}",
                     "method": "message.send",
                     "params": {
-                        "messages": [{"role": "user", "content": f"Message {i}"}],
-                        "contextId": "session-pagination",
-                    "configuration": {"stream": True},
+                        "messages": [
+                            {
+                                "role": "user",
+                                "parts": [{"type": "text", "text": f"Message {i}"}],
+                            }
+                        ],
+                        "contextId": "session-pagination",  # 모두 동일한 contextId
+                        "configuration": {"stream": True},
                     },
                 }
                 await client.post("/a2a", json=create_request)
@@ -357,7 +371,6 @@ class TestTaskListAPI:
                 "method": "tasks/list",
                 "params": {
                     "contextId": "session-pagination",
-                    "configuration": {"stream": True},
                     "limit": 2,
                     "offset": 0,
                 },
@@ -374,7 +387,6 @@ class TestTaskListAPI:
                 "method": "tasks/list",
                 "params": {
                     "contextId": "session-pagination",
-                    "configuration": {"stream": True},
                     "limit": 2,
                     "offset": 2,
                 },
