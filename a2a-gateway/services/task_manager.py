@@ -198,8 +198,20 @@ class TaskManager:
         # user_id = contextId (또는 anonymous)
         user_id = task.contextId if task.contextId else "anonymous"
 
-        # Dify conversation_id 재사용 (있으면)
+        # Dify conversation_id 재사용
+        # 1. 현재 Task에 있으면 사용
         conversation_id = task.metadata.get("dify_conversation_id")
+
+        # 2. 없으면 동일 contextId의 가장 최근 완료된 Task에서 가져오기
+        if not conversation_id and task.contextId:
+            recent_tasks = self.task_store.list(
+                context_id=task.contextId,
+                status=TaskStatus.completed,
+                limit=1,
+                offset=0
+            )
+            if recent_tasks and "dify_conversation_id" in recent_tasks[0].metadata:
+                conversation_id = recent_tasks[0].metadata["dify_conversation_id"]
 
         return DifyChatRequest(
             inputs={},

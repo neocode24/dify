@@ -296,7 +296,7 @@ class TestTaskManager:
         assert dify_request.conversation_id is None
 
     def test_convert_to_dify_request_with_conversation_id(self, manager, store):
-        """conversation_id 재사용 검증"""
+        """현재 Task의 conversation_id 재사용 검증"""
         task = Task(
             id="task-123",
             contextId="session-123",
@@ -310,3 +310,34 @@ class TestTaskManager:
         dify_request = manager._convert_to_dify_request(task)
 
         assert dify_request.conversation_id == "conv-456"
+
+    def test_convert_to_dify_request_reuses_previous_task_conversation_id(self, manager, store):
+        """이전 Task의 conversation_id를 자동으로 찾아서 재사용"""
+        # 1. 첫 번째 Task (완료된 상태, conversation_id 있음)
+        previous_task = Task(
+            id="task-first",
+            contextId="session-123",
+            status=TaskStatus.completed,
+            history=[
+                Message(role="user", parts=[TextPart(text="Hello")]),
+            ],
+            metadata={"dify_conversation_id": "conv-previous-789"},
+        )
+        store.create(previous_task)
+
+        # 2. 새로운 Task (동일 contextId, conversation_id 없음)
+        new_task = Task(
+            id="task-second",
+            contextId="session-123",
+            status=TaskStatus.pending,
+            history=[
+                Message(role="user", parts=[TextPart(text="What is my name?")]),
+            ],
+            metadata={},  # 비어있음
+        )
+
+        # 3. Dify 요청 변환 시 이전 Task의 conversation_id를 자동으로 찾아서 사용
+        dify_request = manager._convert_to_dify_request(new_task)
+
+        assert dify_request.conversation_id == "conv-previous-789"
+        assert dify_request.user == "session-123"
