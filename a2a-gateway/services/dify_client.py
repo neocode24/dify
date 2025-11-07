@@ -4,6 +4,7 @@ from typing import AsyncGenerator
 
 import httpx
 
+from config import settings
 from models.dify import DifyChatRequest, DifySSEEvent
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,12 @@ class DifyClient:
         if request.files:
             request_data["files"] = request.files
 
-        logger.info(f"Dify API Request: {request_data}")
+        if settings.debug_log_dify_calls:
+            logger.debug(f"🔗 Dify API Request:")
+            logger.debug(f"   URL: {url}")
+            logger.debug(f"   Data: {json.dumps(request_data, ensure_ascii=False)[:500]}")
+        else:
+            logger.info(f"Dify API Request: {request_data}")
 
         # httpx stream - response를 yield 밖에서 유지하기 위해 변수로 저장
         response = self.client.stream("POST", url, json=request_data, headers=headers)

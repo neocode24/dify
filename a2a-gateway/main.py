@@ -1,6 +1,7 @@
 import logging
+import time
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
@@ -8,11 +9,38 @@ from routers import chat, tasks
 
 logger = logging.getLogger(__name__)
 
+# Debug 모드 활성화 시 로깅 레벨 조정
+if settings.debug:
+    logging.getLogger().setLevel(logging.DEBUG)
+    logger.setLevel(logging.DEBUG)
+    logger.info("🐛 Debug mode enabled")
+
 app = FastAPI(
     title="Dify A2A Gateway",
     version="0.4.0",  # Phase 2.1: A2A 표준 준수
     description="A2A Protocol gateway for Dify with full A2A standard compliance",
 )
+
+
+# Debug 미들웨어
+@app.middleware("http")
+async def debug_middleware(request: Request, call_next):
+    """Debug 모드 활성화 시 요청/응답 로깅"""
+    if settings.debug_log_requests:
+        logger.debug(f"📥 Request: {request.method} {request.url}")
+        logger.debug(f"   Headers: {dict(request.headers)}")
+        if request.method in ["POST", "PUT", "PATCH"]:
+            body = await request.body()
+            logger.debug(f"   Body: {body.decode('utf-8')[:500]}")  # 처음 500자만
+
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+
+    if settings.debug_log_responses:
+        logger.debug(f"📤 Response: {response.status_code} (took {process_time:.3f}s)")
+
+    return response
 
 # CORS 설정
 app.add_middleware(
