@@ -7,14 +7,10 @@ from fastapi.responses import StreamingResponse
 from config import settings
 from models.a2a import A2ARequest
 from services.dify_client import DifyClient
-from services.session_manager import SessionManager
 from services.translator import A2ADifyTranslator
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-# SessionManager 전역 인스턴스 (앱 수명주기 동안 유지)
-session_manager = SessionManager()
 
 
 @router.post("/a2a")
@@ -26,19 +22,19 @@ async def handle_a2a_chat(request: A2ARequest):
     {
       "jsonrpc": "2.0",
       "id": "1",
-      "method": "chat.create",
+      "method": "message.send",
       "params": {
         "messages": [{"role": "user", "content": "Hello"}],
+        "contextId": "session-123",
         "stream": true
       }
     }
     """
-    # A2A → Dify 변환 (SessionManager 주입)
-    translator = A2ADifyTranslator(session_manager=session_manager)
-    dify_request = translator.a2a_to_dify(request)
+    # A2A → Dify 변환
+    dify_request = A2ADifyTranslator.a2a_to_dify(request)
 
-    # User ID 추출 (conversation_id 매핑 저장용)
-    user_id = dify_request.user
+    # contextId 추출 (A2A 응답에 포함)
+    context_id = request.params.contextId
 
     # 스트리밍 응답 생성
     async def event_generator():
@@ -46,12 +42,8 @@ async def handle_a2a_chat(request: A2ARequest):
         dify = DifyClient(base_url=settings.dify_api_url, api_key=settings.dify_api_key)
         try:
             async for dify_event in dify.stream_chat(dify_request):
-                # 첫 conversation_id 수신 시 Redis 저장
-                if dify_event.conversation_id and dify_event.event == "message":
-                    translator.store_conversation_user(dify_event.conversation_id, user_id)
-
-                # Dify SSE → A2A JSON-RPC 변환
-                a2a_response = translator.dify_to_a2a(dify_event, request.id)
+                # Dify SSE → A2A JSON-RPC 변환 (contextId 포함)
+                a2a_response = A2ADifyTranslator.dify_to_a2a(dify_event, request.id, context_id)
 
                 if a2a_response:
                     # SSE 형식으로 전송

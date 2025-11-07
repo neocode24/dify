@@ -733,18 +733,10 @@ services:
       PORT: 8080
       HOST: 0.0.0.0
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      # Redis 설정 (다중 클라이언트 지원)
-      REDIS_ENABLED: ${A2A_REDIS_ENABLED:-true}
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_DB: ${A2A_REDIS_DB:-2}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-difyai123456}
-      REDIS_TTL_DAYS: ${A2A_REDIS_TTL_DAYS:-1}
     networks:
       - default
     depends_on:
       - api
-      - redis
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s

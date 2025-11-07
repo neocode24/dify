@@ -1,14 +1,91 @@
 # Dify A2A Gateway
 
-[![Tests](https://img.shields.io/badge/tests-34%20passed-success)](tests/)
+[![Tests](https://img.shields.io/badge/tests-31%20passed-success)](tests/)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)](pyproject.toml)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green)](https://fastapi.tiangolo.com/)
 
-A2A Protocol gateway for Dify - 프로덕션급 대화 에이전트 통신 게이트웨이
+A2A Protocol gateway for Dify - 표준 준수 대화 에이전트 통신 게이트웨이
 
 ## 개요
 
-Dify의 Chat API를 [A2A Protocol](https://a2a.anthropic.com/docs) (Agent-to-Agent JSON-RPC 2.0)로 감싸는 게이트웨이 서비스입니다. A2A 클라이언트가 Dify Agent와 실시간 스트리밍 대화를 수행할 수 있도록 프로토콜 변환을 제공합니다.
+Dify의 Chat API를 [A2A Protocol](https://a2a-protocol.org/) (Agent-to-Agent JSON-RPC 2.0) 표준으로 감싸는 게이트웨이 서비스입니다. A2A 클라이언트가 Dify Agent와 실시간 스트리밍 대화를 수행할 수 있도록 프로토콜 변환을 제공합니다.
+
+## ⚠️ Breaking Changes (v0.2.0)
+
+### A2A Protocol 표준 준수로 인한 변경
+
+이전 버전(v0.1.0)은 A2A Protocol 표준을 준수하지 않았습니다. v0.2.0부터 공식 표준을 따르도록 대폭 리팩토링되었습니다.
+
+#### 주요 변경사항
+
+1. **`conversation_id` → `contextId` 변경**
+   - A2A Protocol 표준 필드명 사용
+   - 요청/응답 모두 `contextId` 필드로 통일
+
+2. **Redis 의존성 제거**
+   - Session 관리를 위한 Redis 불필요
+   - `contextId`를 Dify `user_id`로 직접 매핑
+   - 인프라 단순화 (Gateway 단독 실행 가능)
+
+3. **User ID 로직 단순화**
+   - Before: Redis 기반 `conversation_id → user_id` 매핑
+   - After: `contextId` 값을 `user_id`로 직접 사용
+   - contextId 없을 경우: `"anonymous"` 사용
+
+4. **메서드명 변경**
+   - Before: `chat.create`
+   - After: `message.send` (A2A 표준)
+
+#### 마이그레이션 가이드
+
+**요청 형식 변경:**
+```diff
+{
+  "jsonrpc": "2.0",
+  "id": "1",
+- "method": "chat.create",
++ "method": "message.send",
+  "params": {
+    "messages": [{"role": "user", "content": "Hello"}],
+-   "conversation_id": "conv-123",
++   "contextId": "session-123",
+    "stream": true
+  }
+}
+```
+
+**응답 형식 변경:**
+```diff
+{
+  "jsonrpc": "2.0",
+  "id": "1",
+  "result": {
+    "type": "content_delta",
+    "delta": "Hello!",
+-   "conversation_id": "conv-123"
++   "contextId": "session-123"
+  }
+}
+```
+
+**환경변수 제거:**
+```diff
+- REDIS_ENABLED=true
+- REDIS_HOST=localhost
+- REDIS_PORT=6379
+- REDIS_DB=0
+- REDIS_PASSWORD=
+- REDIS_TTL_DAYS=1
+```
+
+**Docker Compose 변경:**
+```diff
+services:
+  a2a-gateway:
+    depends_on:
+      - api
+-     - redis
+```
 
 ## 주요 기능
 
@@ -17,15 +94,15 @@ Dify의 Chat API를 [A2A Protocol](https://a2a.anthropic.com/docs) (Agent-to-Age
 - **Dify → A2A**: Dify SSE 스트리밍 응답을 A2A JSON-RPC로 변환
 - **실시간 스트리밍**: Server-Sent Events를 통한 실시간 응답 전송
 
-### 🔐 다중 클라이언트 세션 관리
-- **Redis 기반 세션 관리**: conversation_id ↔ user_id 매핑으로 다중 클라이언트 격리
-- **대화 컨텍스트 유지**: conversation_id를 통한 다중 턴 대화 지원
-- **자동 만료**: TTL 기반 세션 자동 정리 (기본 1일)
-- **Fallback 지원**: Redis 비활성 시 단일 클라이언트 모드로 동작
+### 🎯 A2A Protocol 표준 준수
+- **contextId 기반 세션 관리**: A2A Protocol의 contextId를 Dify user_id로 매핑
+- **대화 컨텍스트 유지**: contextId를 통한 다중 턴 대화 지원
+- **표준 메서드**: `message.send` 메서드 지원
+- **단순한 아키텍처**: 외부 의존성 없이 Gateway 단독 실행
 
 ### 📊 프로덕션 준비
-- **Health Check**: Redis 상태 포함한 종합 health endpoint
-- **종합 테스트**: 34개 테스트 (24 unit + 10 E2E) 검증 완료
+- **Health Check**: 종합 health endpoint 제공
+- **종합 테스트**: 31개 테스트 (23 unit + 8 E2E) 검증 완료
 - **독립 배포**: Dify 코드 수정 없이 별도 서비스로 동작
 - **Docker 지원**: Docker Compose 통합 배포
 
@@ -41,26 +118,26 @@ A2A Gateway (FastAPI)
 Dify API
 ```
 
-### Redis 기반 세션 관리
+### contextId 기반 세션 관리
 
 ```
-┌─────────────┐         ┌──────────────┐         ┌─────────┐         ┌──────────┐
-│ A2A Client  │────────▶│ A2A Gateway  │────────▶│  Redis  │────────▶│   Dify   │
-│             │◀────────│              │◀────────│         │◀────────│   API    │
-└─────────────┘         └──────────────┘         └─────────┘         └──────────┘
-                             │                        │
-                             │  conversation_id       │  user_id
-                             │  ────────────────────▶ │  mapping
-                             │                        │  (TTL: 1일)
+┌─────────────┐                  ┌──────────────┐                  ┌──────────┐
+│ A2A Client  │─────────────────▶│ A2A Gateway  │─────────────────▶│   Dify   │
+│             │◀─────────────────│              │◀─────────────────│   API    │
+└─────────────┘                  └──────────────┘                  └──────────┘
+      │                                  │
+      │ contextId: "session-123"        │ user_id: "session-123"
+      │ (Client 제공)                   │ (contextId 직접 매핑)
 ```
 
 #### 대화 흐름
 
-1. **첫 메시지**: Gateway가 request.id로 user_id 생성 → Dify 요청
-2. **Dify 응답**: conversation_id 생성 및 반환
-3. **Redis 저장**: `conv:{conversation_id} → user_id` 매핑 저장 (TTL: 1일)
-4. **후속 메시지**: conversation_id로 Redis 조회 → 동일 user_id로 Dify 요청
-5. **컨텍스트 유지**: Dify가 동일 user_id의 대화 이력 기반 응답
+1. **첫 메시지**: Client가 contextId 제공 (또는 없으면 "anonymous")
+2. **Gateway 변환**: contextId → Dify user_id 직접 매핑
+3. **Dify 요청**: user_id로 Dify API 호출
+4. **Dify 응답**: conversation_id 생성 및 스트리밍 응답
+5. **A2A 응답**: contextId를 응답에 포함하여 반환
+6. **후속 메시지**: 동일 contextId 사용 시 Dify가 자동으로 컨텍스트 유지
 
 ## 빠른 시작
 
@@ -68,7 +145,6 @@ Dify API
 
 - Python 3.11 또는 3.12
 - Docker & Docker Compose (선택)
-- Redis (다중 클라이언트 사용 시)
 
 ### 1. 환경변수 설정
 
@@ -87,13 +163,8 @@ PORT=8080
 HOST=0.0.0.0
 LOG_LEVEL=INFO
 
-# Redis 설정 (다중 클라이언트 지원)
-REDIS_ENABLED=true
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_DB=0
-REDIS_PASSWORD=
-REDIS_TTL_DAYS=1
+# CORS 설정
+CORS_ORIGINS=["*"]
 ```
 
 ### 2. Docker Compose로 실행 (권장)
@@ -132,17 +203,11 @@ curl http://localhost:8080/health
 {
   "status": "ok",
   "service": "dify-a2a-gateway",
-  "version": "0.1.0",
-  "redis": {
-    "redis_enabled": true,
-    "status": "healthy",
-    "redis_version": "6.2.21",
-    "uptime_days": 0
-  }
+  "version": "0.2.0"
 }
 ```
 
-### 기본 대화 요청
+### 기본 대화 요청 (contextId 없음)
 
 ```bash
 curl -N -X POST http://localhost:8080/a2a \
@@ -150,7 +215,7 @@ curl -N -X POST http://localhost:8080/a2a \
   -d '{
     "jsonrpc": "2.0",
     "id": "test-1",
-    "method": "chat.create",
+    "method": "message.send",
     "params": {
       "messages": [
         {"role": "user", "content": "안녕하세요"}
@@ -159,49 +224,50 @@ curl -N -X POST http://localhost:8080/a2a \
   }'
 ```
 
-### 대화 이어가기 (conversation_id 사용)
+### 대화 이어가기 (contextId 사용)
 
 ```bash
-# 1. 첫 번째 메시지
+# 1. 첫 번째 메시지 (contextId 지정)
 curl -N -X POST http://localhost:8080/a2a \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
     "id": "msg-1",
-    "method": "chat.create",
+    "method": "message.send",
     "params": {
       "messages": [
         {"role": "user", "content": "제 이름은 김철수입니다"}
-      ]
+      ],
+      "contextId": "session-123"
     }
   }'
 
-# 응답에서 conversation_id 추출 (예: "conv-abc123")
-
-# 2. 대화 이어가기
+# 2. 대화 이어가기 (동일한 contextId 사용)
 curl -N -X POST http://localhost:8080/a2a \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
     "id": "msg-2",
-    "method": "chat.create",
+    "method": "message.send",
     "params": {
       "messages": [
         {"role": "user", "content": "제 이름이 뭐였죠?"}
       ],
-      "conversation_id": "conv-abc123"
+      "contextId": "session-123"
     }
   }'
 ```
 
+**참고**: contextId를 제공하지 않으면 "anonymous" user로 처리되며, 대화 컨텍스트가 유지되지 않습니다.
+
 ### SSE 스트리밍 응답 형식
 
 ```
-data: {"jsonrpc":"2.0","id":"test-1","result":{"type":"content_delta","delta":"안녕","conversation_id":"conv-xxx"}}
+data: {"jsonrpc":"2.0","id":"test-1","result":{"type":"content_delta","delta":"안녕","contextId":"session-123"}}
 
-data: {"jsonrpc":"2.0","id":"test-1","result":{"type":"content_delta","delta":"하세요","conversation_id":"conv-xxx"}}
+data: {"jsonrpc":"2.0","id":"test-1","result":{"type":"content_delta","delta":"하세요","contextId":"session-123"}}
 
-data: {"jsonrpc":"2.0","id":"test-1","result":{"type":"complete","message_id":"msg-xxx","conversation_id":"conv-xxx"}}
+data: {"jsonrpc":"2.0","id":"test-1","result":{"type":"complete","message_id":"msg-xxx","contextId":"session-123"}}
 ```
 
 ## 환경변수
@@ -222,21 +288,11 @@ data: {"jsonrpc":"2.0","id":"test-1","result":{"type":"complete","message_id":"m
 | `LOG_LEVEL` | 로그 레벨 (DEBUG/INFO/WARNING/ERROR) | `INFO` |
 | `CORS_ORIGINS` | CORS 허용 출처 | `["*"]` |
 
-### Redis 설정 (다중 클라이언트 지원)
+### CORS 설정
 
 | 변수 | 설명 | 기본값 |
 |------|------|--------|
-| `REDIS_ENABLED` | Redis 사용 여부 | `true` |
-| `REDIS_HOST` | Redis 호스트 | `localhost` |
-| `REDIS_PORT` | Redis 포트 | `6379` |
-| `REDIS_DB` | Redis DB 번호 | `0` |
-| `REDIS_PASSWORD` | Redis 비밀번호 | `` (없음) |
-| `REDIS_URL` | Redis 연결 URL (우선순위 높음) | - |
-| `REDIS_TTL_DAYS` | Conversation 매핑 보관 기간 (일) | `1` |
-
-**참고:**
-- `REDIS_ENABLED=false`로 설정하면 단일 클라이언트 모드로 동작 (fallback)
-- `REDIS_URL`이 설정되면 개별 Redis 설정(HOST, PORT 등)을 무시
+| `CORS_ORIGINS` | 허용할 Origin 목록 (JSON 배열) | `["*"]` |
 
 ## 프로젝트 구조
 
@@ -249,15 +305,14 @@ a2a-gateway/
 │   └── dify.py                 # Dify API Pydantic 모델
 ├── services/
 │   ├── dify_client.py          # Dify API HTTP 클라이언트 (httpx + SSE)
-│   ├── translator.py           # A2A ↔ Dify 프로토콜 변환기
-│   └── session_manager.py      # Redis 기반 세션 관리
+│   └── translator.py           # A2A ↔ Dify 프로토콜 변환기
 ├── routers/
 │   └── chat.py                 # /a2a 엔드포인트 라우터
 ├── tests/
-│   ├── unit/                   # 단위 테스트 (24개)
+│   ├── unit/                   # 단위 테스트 (23개)
 │   │   ├── test_models.py
 │   │   └── test_translator.py
-│   └── integration/            # 통합 테스트 (10개)
+│   └── integration/            # 통합 테스트 (8개)
 │       └── test_e2e.py         # E2E 테스트
 ├── Dockerfile                   # 프로덕션 이미지 빌드
 ├── pyproject.toml              # 의존성 및 프로젝트 메타데이터
@@ -412,23 +467,7 @@ docker compose logs api -f
 - Docker 네트워크 내에서는 `http://api:5001` 사용
 - 로컬 호스트에서는 `http://localhost:5001` 사용
 
-### 2. Redis 연결 실패
-
-```bash
-# Redis 상태 확인
-curl http://localhost:8080/health | jq .redis
-
-# Redis 직접 연결 테스트
-docker compose exec redis redis-cli ping
-```
-
-**증상:** Health check에서 `redis.status: "error"`
-**해결:**
-- Redis 서비스가 실행 중인지 확인
-- `REDIS_HOST`, `REDIS_PORT` 설정 확인
-- `REDIS_ENABLED=false`로 설정하여 fallback 모드 사용
-
-### 3. API Key 오류
+### 2. API Key 오류
 
 **증상:** `401 Unauthorized` 또는 `Invalid API key`
 **해결:**
@@ -436,7 +475,7 @@ docker compose exec redis redis-cli ping
 - Dify 콘솔에서 App의 API Key 재발급
 - API Key 앞에 `app-` 접두사 확인
 
-### 4. SSE 스트리밍 끊김
+### 3. SSE 스트리밍 끊김
 
 **증상:** 응답이 중간에 끊기거나 버퍼링됨
 **해결:**
@@ -449,25 +488,13 @@ docker compose exec redis redis-cli ping
   ```
 - `curl`에서 `-N` 옵션 사용
 
-### 5. 대화 컨텍스트 유지 안됨
+### 4. 대화 컨텍스트 유지 안됨
 
 **증상:** 이전 대화 내용을 기억하지 못함
 **확인사항:**
-1. `conversation_id`를 제대로 전달했는지 확인
-2. Redis가 활성화되어 있는지 확인 (`REDIS_ENABLED=true`)
-3. Redis에 매핑이 저장되었는지 확인:
-   ```bash
-   docker exec redis redis-cli -n 2 KEYS "conv:*"
-   ```
-4. TTL이 만료되지 않았는지 확인 (기본 1일)
-
-### 6. 다중 클라이언트 격리 문제
-
-**증상:** 서로 다른 클라이언트의 대화가 섞임
-**해결:**
-- `REDIS_ENABLED=true` 확인
-- 각 클라이언트가 고유한 `request.id` 사용하는지 확인
-- Health check에서 Redis 상태 확인
+1. 동일한 `contextId`를 전달했는지 확인
+2. `contextId`가 없으면 "anonymous" 처리되어 컨텍스트 유지 안됨
+3. Dify가 동일 user_id의 대화 이력을 유지하는지 확인
 
 ## 성능 및 확장성
 
@@ -476,7 +503,7 @@ docker compose exec redis redis-cli ping
 - **응답 시간**: Dify API 응답 시간 + 프로토콜 변환 오버헤드 (~5ms)
 - **동시 연결**: FastAPI의 비동기 처리로 수천 개 동시 연결 지원
 - **메모리 사용**: 기본 ~50MB + 연결당 ~1MB
-- **Redis 부하**: conversation 생성/조회당 1-2개 명령어
+- **외부 의존성**: 없음 (Gateway 단독 실행)
 
 ### 수평 확장
 
@@ -494,8 +521,8 @@ upstream a2a_gateway {
 ```
 
 **주의사항:**
-- 모든 인스턴스가 동일한 Redis를 바라봐야 세션 공유 가능
-- Sticky session 불필요 (Redis 기반 상태 관리)
+- 상태를 저장하지 않으므로 Sticky session 불필요
+- 모든 인스턴스가 동일한 Dify API를 바라봐야 함
 
 ## A2A Protocol 지원
 

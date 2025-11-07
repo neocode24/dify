@@ -32,11 +32,8 @@ class TestA2AModels:
         user_msg = A2AMessage(role="user", content="Hello")
         assert user_msg.role == "user"
 
-        assistant_msg = A2AMessage(role="assistant", content="Hi")
-        assert assistant_msg.role == "assistant"
-
-        system_msg = A2AMessage(role="system", content="You are a helpful assistant")
-        assert system_msg.role == "system"
+        agent_msg = A2AMessage(role="agent", content="Hi")
+        assert agent_msg.role == "agent"
 
     def test_a2a_message_invalid_role(self):
         """잘못된 role 거부"""
@@ -49,14 +46,14 @@ class TestA2AModels:
         """기본값 확인"""
         params = A2AChatParams(messages=[A2AMessage(role="user", content="Hello")])
 
-        assert params.conversation_id is None
+        assert params.contextId is None
         assert params.stream is True
 
-    def test_a2a_chat_params_with_conversation_id(self):
-        """conversation_id 설정"""
-        params = A2AChatParams(messages=[A2AMessage(role="user", content="Hello")], conversation_id="conv-123")
+    def test_a2a_chat_params_with_context_id(self):
+        """contextId 설정"""
+        params = A2AChatParams(messages=[A2AMessage(role="user", content="Hello")], contextId="session-123")
 
-        assert params.conversation_id == "conv-123"
+        assert params.contextId == "session-123"
 
     def test_a2a_error_default(self):
         """A2A 에러 기본값"""

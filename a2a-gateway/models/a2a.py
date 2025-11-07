@@ -6,15 +6,15 @@ from pydantic import BaseModel, Field
 class A2AMessage(BaseModel):
     """A2A 프로토콜 메시지"""
 
-    role: Literal["user", "assistant", "system"]
+    role: Literal["user", "agent"]
     content: str
 
 
 class A2AChatParams(BaseModel):
-    """A2A chat.create 파라미터"""
+    """A2A message.send 파라미터"""
 
     messages: list[A2AMessage]
-    conversation_id: Optional[str] = None
+    contextId: Optional[str] = None
     stream: bool = True
 
 
