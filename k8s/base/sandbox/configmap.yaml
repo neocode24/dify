@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sandbox-config
+  namespace: dify
+  labels:
+    app.kubernetes.io/name: dify
+    app.kubernetes.io/component: sandbox
+data:
+  config.json: |
+    {
+      "python_requirements_file": "/dependencies/python-requirements.txt",
+      "python_path": "/usr/local/bin/python3",
+      "nodejs_requirements_file": "/dependencies/nodejs-requirements.txt",
+      "nodejs_path": "/usr/local/bin/node",
+      "pip_mirror": "https://pypi.tuna.tsinghua.edu.cn/simple",
+      "npm_registry": "https://registry.npmmirror.com"
+    }

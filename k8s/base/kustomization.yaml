@@ -1,0 +1,87 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dify
+
+resources:
+  # Namespace
+  - namespace.yaml
+
+  # PersistentVolumes for RWX storage
+  - pv-hostpath.yaml
+  - pv-plugin-storage.yaml
+
+  # ConfigMaps and Secrets
+  - configmap-env.yaml
+  - configmap-nginx.yaml
+  - secrets.yaml
+
+  # PostgreSQL
+  - postgresql/pvc.yaml
+  - postgresql/init-configmap.yaml
+  - postgresql/statefulset.yaml
+  - postgresql/service.yaml
+
+  # Redis
+  - redis/pvc.yaml
+  - redis/statefulset.yaml
+  - redis/service.yaml
+
+  # API
+  - api/pvc.yaml
+  - api/deployment.yaml
+  - api/service.yaml
+
+  # Worker
+  - worker/deployment.yaml
+
+  # Worker Beat
+  - worker-beat/deployment.yaml
+
+  # Web
+  - web/deployment.yaml
+  - web/service.yaml
+
+  # Nginx
+  - nginx/deployment.yaml
+  - nginx/service.yaml
+
+  # SSRF Proxy
+  - ssrf-proxy/configmap.yaml
+  - ssrf-proxy/deployment.yaml
+  - ssrf-proxy/service.yaml
+
+  # Sandbox
+  - sandbox/pvc.yaml
+  - sandbox/configmap.yaml
+  - sandbox/deployment.yaml
+  - sandbox/service.yaml
+
+  # Plugin Daemon
+  - plugin-daemon/pvc.yaml
+  - plugin-daemon/deployment.yaml
+  - plugin-daemon/service.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/name: dify
+      app.kubernetes.io/managed-by: kustomize
+
+images:
+  - name: langgenius/dify-api
+    newTag: "1.9.2"
+  - name: langgenius/dify-web
+    newTag: "1.9.2"
+  - name: langgenius/dify-sandbox
+    newTag: "0.2.12"
+  - name: langgenius/dify-plugin-daemon
+    newTag: "0.3.3-local"
+  - name: postgres
+    newTag: "15-alpine"
+  - name: redis
+    newTag: "6-alpine"
+  - name: nginx
+    newTag: "latest"
+  - name: ubuntu/squid
+    newTag: "latest"

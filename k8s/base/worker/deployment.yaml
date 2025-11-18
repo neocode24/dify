@@ -1,0 +1,75 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: dify
+  labels:
+    app.kubernetes.io/name: dify
+    app.kubernetes.io/component: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dify
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dify
+        app.kubernetes.io/component: worker
+    spec:
+      # hostPath PV를 사용하므로 동일 노드에 스케줄링
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - orbstack
+      containers:
+      - name: worker
+        image: langgenius/dify-api:1.9.2
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - configMapRef:
+            name: dify-env
+        env:
+        - name: MODE
+          value: "worker"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: DB_PASSWORD
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: REDIS_PASSWORD
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: SECRET_KEY
+        - name: WEAVIATE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: WEAVIATE_API_KEY
+        volumeMounts:
+        - name: storage
+          mountPath: /app/api/storage
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: dify-app-storage

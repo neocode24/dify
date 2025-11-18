@@ -1,0 +1,94 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sandbox
+  namespace: dify
+  labels:
+    app.kubernetes.io/name: dify
+    app.kubernetes.io/component: sandbox
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dify
+      app.kubernetes.io/component: sandbox
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dify
+        app.kubernetes.io/component: sandbox
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - orbstack
+      containers:
+      - name: sandbox
+        image: langgenius/dify-sandbox:0.2.12
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8194
+          protocol: TCP
+        env:
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dify-secrets
+              key: SANDBOX_API_KEY
+        - name: GIN_MODE
+          value: "release"
+        - name: WORKER_TIMEOUT
+          value: "15"
+        - name: ENABLE_NETWORK
+          value: "true"
+        - name: HTTP_PROXY
+          value: "http://ssrf-proxy:3128"
+        - name: HTTPS_PROXY
+          value: "http://ssrf-proxy:3128"
+        - name: SANDBOX_PORT
+          value: "8194"
+        volumeMounts:
+        - name: dependencies
+          mountPath: /dependencies
+        - name: config
+          mountPath: /app/config.json
+          subPath: config.json
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8194
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8194
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: dependencies
+        persistentVolumeClaim:
+          claimName: dify-sandbox-deps
+      - name: config
+        configMap:
+          name: sandbox-config

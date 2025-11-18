@@ -1,0 +1,30 @@
+---
+# RWX용 hostPath PersistentVolume
+# api, worker, worker-beat가 app_storage를 공유하기 위함
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: dify-app-storage-pv
+  labels:
+    type: local
+    app.kubernetes.io/name: dify
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""  # Static provisioning
+  hostPath:
+    path: /var/lib/dify/storage
+    type: DirectoryOrCreate
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - orbstack

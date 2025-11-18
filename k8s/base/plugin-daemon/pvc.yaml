@@ -1,0 +1,21 @@
+---
+# PVC for Plugin Storage (RWX)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dify-plugin-storage
+  namespace: dify
+  labels:
+    app.kubernetes.io/name: dify
+    app.kubernetes.io/component: plugin-storage
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""  # Static binding to dify-plugin-storage-pv
+  resources:
+    requests:
+      storage: 10Gi
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dify
+      app.kubernetes.io/component: plugin-storage

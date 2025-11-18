@@ -1,0 +1,25 @@
+---
+# Production 환경에서는 고가용성을 위해 replicas를 증가
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: dify
+spec:
+  replicas: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: dify
+spec:
+  replicas: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: dify
+spec:
+  replicas: 2

@@ -1,0 +1,111 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dify-env
+  namespace: dify
+  labels:
+    app.kubernetes.io/name: dify
+    app.kubernetes.io/component: config
+data:
+  # Common Variables
+  LANG: "en_US.UTF-8"
+  LC_ALL: "en_US.UTF-8"
+  PYTHONIOENCODING: "utf-8"
+
+  # Server Configuration
+  LOG_LEVEL: "INFO"
+  LOG_FILE: "/app/logs/server.log"
+  LOG_FILE_MAX_SIZE: "20"
+  LOG_FILE_BACKUP_COUNT: "5"
+  LOG_DATEFORMAT: "%Y-%m-%d %H:%M:%S"
+  LOG_TZ: "UTC"
+  DEBUG: "false"
+  FLASK_DEBUG: "false"
+  ENABLE_REQUEST_LOGGING: "false"
+
+  # Database Configuration
+  DB_USERNAME: "postgres"
+  DB_HOST: "postgresql"
+  DB_PORT: "5432"
+  DB_DATABASE: "dify"
+  SQLALCHEMY_POOL_SIZE: "30"
+  SQLALCHEMY_POOL_RECYCLE: "3600"
+  SQLALCHEMY_ECHO: "false"
+
+  # Redis Configuration
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  REDIS_USE_SSL: "false"
+  CELERY_BROKER_URL: "redis://:difyai123456@redis:6379/1"
+  BROKER_USE_SSL: "false"
+
+  # Storage Configuration (Local)
+  STORAGE_TYPE: "local"
+  STORAGE_LOCAL_PATH: "storage"
+
+  # Vector Database (Weaviate - 추후 설정 가능)
+  VECTOR_STORE: "weaviate"
+  WEAVIATE_ENDPOINT: "http://weaviate:8080"
+  WEAVIATE_API_KEY: "WVF5YThaHlkYwhGUSmCRgsX3tD5ngdN8pkih"
+
+  # CORS Configuration
+  WEB_API_CORS_ALLOW_ORIGINS: "*"
+  CONSOLE_CORS_ALLOW_ORIGINS: "*"
+
+  # Cookie Settings
+  COOKIE_HTTPONLY: "true"
+  COOKIE_SAMESITE: "None"
+  COOKIE_SECURE: "true"
+
+  # Session Settings
+  SESSION_TYPE: "redis"
+  SESSION_PERMANENT: "true"
+  SESSION_USE_SIGNER: "true"
+  PERMANENT_SESSION_LIFETIME: "86400"
+
+  # Indexing Configuration
+  INDEXING_MAX_SEGMENTATION_TOKENS_LENGTH: "1000"
+
+  # Billing
+  BILLING_ENABLED: "false"
+
+  # Model Configuration
+  MODEL_LB_ENABLED: "false"
+
+  # Migration
+  MIGRATION_ENABLED: "true"
+
+  # Code Execution (Sandbox)
+  CODE_EXECUTION_ENDPOINT: "http://sandbox:8194"
+  CODE_EXECUTION_API_KEY: "dify-sandbox"
+  CODE_MAX_NUMBER: "9223372036854775807"
+  CODE_MIN_NUMBER: "-9223372036854775807"
+  CODE_MAX_DEPTH: "5"
+  CODE_MAX_PRECISION: "20"
+  CODE_MAX_STRING_LENGTH: "80000"
+  CODE_MAX_STRING_ARRAY_LENGTH: "30"
+  CODE_MAX_OBJECT_ARRAY_LENGTH: "30"
+  CODE_MAX_NUMBER_ARRAY_LENGTH: "1000"
+
+  # SSRF Proxy
+  SSRF_PROXY_HTTP_URL: "http://ssrf-proxy:3128"
+  SSRF_PROXY_HTTPS_URL: "http://ssrf-proxy:3128"
+
+  # Plugin Daemon Configuration
+  PLUGIN_DAEMON_URL: "http://plugin-daemon:5002"
+  PLUGIN_MAX_PACKAGE_SIZE: "52428800"
+  PLUGIN_PYTHON_ENV_INIT_TIMEOUT: "120"
+  PLUGIN_MAX_EXECUTION_TIMEOUT: "600"
+  ENFORCE_LANGGENIUS_PLUGIN_SIGNATURES: "true"
+  PLUGIN_BASED_TOKEN_COUNTING_ENABLED: "false"
+
+  # Mail Configuration (옵션)
+  MAIL_TYPE: ""
+  MAIL_DEFAULT_SEND_FROM: "no-reply@dify.ai"
+
+  # Sentry (옵션)
+  SENTRY_DSN: ""
+  SENTRY_TRACES_SAMPLE_RATE: "1.0"
+  SENTRY_PROFILES_SAMPLE_RATE: "1.0"

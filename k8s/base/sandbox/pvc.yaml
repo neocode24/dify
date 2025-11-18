@@ -1,0 +1,21 @@
+---
+# PVC for Sandbox Dependencies (RWX)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dify-sandbox-deps
+  namespace: dify
+  labels:
+    app.kubernetes.io/name: dify
+    app.kubernetes.io/component: sandbox-deps
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""  # Static binding to dify-sandbox-deps-pv
+  resources:
+    requests:
+      storage: 5Gi
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dify
+      app.kubernetes.io/component: sandbox-deps

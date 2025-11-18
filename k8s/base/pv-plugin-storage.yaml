@@ -1,0 +1,58 @@
+---
+# RWX용 hostPath PersistentVolume for Plugin Storage
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: dify-plugin-storage-pv
+  labels:
+    type: local
+    app.kubernetes.io/name: dify
+    app.kubernetes.io/component: plugin-storage
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""  # Static provisioning
+  hostPath:
+    path: /var/lib/dify/plugin-storage
+    type: DirectoryOrCreate
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - orbstack
+---
+# RWX용 hostPath PersistentVolume for Sandbox Dependencies
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: dify-sandbox-deps-pv
+  labels:
+    type: local
+    app.kubernetes.io/name: dify
+    app.kubernetes.io/component: sandbox-deps
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  hostPath:
+    path: /var/lib/dify/sandbox/dependencies
+    type: DirectoryOrCreate
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - orbstack

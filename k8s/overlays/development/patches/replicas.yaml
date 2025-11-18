@@ -1,0 +1,25 @@
+---
+# Development 환경에서는 리소스 절약을 위해 replicas를 1로 설정
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: dify
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: dify
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: dify
+spec:
+  replicas: 1
