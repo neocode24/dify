@@ -11,14 +11,18 @@ OrbStack 또는 다른 Kubernetes 환경에서 Dify를 배포하는 가이드입
 ## 빠른 시작
 
 ```bash
-# Development 환경 배포
+# 1. Secrets 설정 (최초 1회)
+cp k8s/base/secrets.env.example k8s/base/secrets.env
+# 필요시 secrets.env 파일을 편집하여 프로덕션 값으로 변경
+
+# 2. Development 환경 배포
 cd k8s/overlays/development
 kustomize build . --enable-helm | kubectl apply -f -
 
-# 파드 상태 확인
+# 3. 파드 상태 확인
 kubectl get pods -n dify
 
-# 서비스 접속 (OrbStack)
+# 4. 서비스 접속 (OrbStack)
 open http://localhost:30080
 ```
 
@@ -167,23 +171,30 @@ k8s/
 이 디렉토리를 공유하면 바로 배포 가능합니다:
 
 ```bash
-# 1. 저장소 클론 또는 k8s/ 디렉토리 복사
+# 1. 저장소 클론
 git clone <repo-url>
-cd dify/k8s/overlays/development
+cd dify
 
-# 2. 배포
+# 2. Secrets 설정 (최초 1회)
+cp k8s/base/secrets.env.example k8s/base/secrets.env
+# secrets.env.example이 템플릿으로 제공되므로 바로 사용 가능
+# 프로덕션 환경에서는 값 변경 필요
+
+# 3. 배포
+cd k8s/overlays/development
 kustomize build . --enable-helm | kubectl apply -f -
 
-# 3. 대기 (1-2분)
+# 4. 대기 (1-2분)
 kubectl get pods -n dify -w
 
-# 4. 접속
+# 5. 접속
 open http://localhost:30080
 ```
 
 **모든 설정이 자동으로 적용됩니다:**
+- ✅ Secrets 자동 생성 (secretGenerator)
 - ✅ dify_plugin DB 생성
 - ✅ SSRF proxy 설정
 - ✅ 모든 서비스 연결
 
-DB export/import 필요 없음!
+**중요**: `secrets.env` 파일만 한 번 복사하면 됩니다. DB export/import 필요 없음!

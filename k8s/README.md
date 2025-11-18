@@ -12,7 +12,8 @@ k8s/
 │   ├── pv-hostpath.yaml     # RWX용 hostPath PV
 │   ├── configmap-env.yaml   # 환경 변수
 │   ├── configmap-nginx.yaml # nginx 설정
-│   ├── secrets.yaml         # 민감 정보 (gitignore 처리)
+│   ├── secrets.env.example  # Secrets 템플릿 (Git 추적)
+│   ├── secrets.env          # 실제 Secrets (gitignore 처리)
 │   ├── postgresql/          # PostgreSQL StatefulSet
 │   ├── redis/               # Redis StatefulSet
 │   ├── api/                 # API Deployment
@@ -51,14 +52,29 @@ k8s/
 
 ### 1. Secrets 설정
 
-`k8s/base/secrets.yaml` 파일에서 다음 값들을 변경하세요:
+템플릿에서 secrets 파일을 생성하고 값을 수정하세요:
 
-```yaml
-stringData:
-  DB_PASSWORD: "your-db-password"
-  REDIS_PASSWORD: "your-redis-password"
-  SECRET_KEY: "your-secret-key"  # openssl rand -base64 42
-  WEAVIATE_API_KEY: "your-weaviate-key"
+```bash
+# secrets.env 파일 생성
+cp k8s/base/secrets.env.example k8s/base/secrets.env
+
+# 에디터로 열어서 프로덕션 값으로 변경
+vim k8s/base/secrets.env
+```
+
+**중요**: 프로덕션 환경에서는 다음 값들을 반드시 새로 생성하세요:
+```bash
+# SECRET_KEY 생성
+openssl rand -base64 42
+
+# ENCRYPT_PUBLIC_KEY 생성
+openssl rand -base64 42
+
+# PLUGIN_DAEMON_KEY 생성
+openssl rand -base64 42
+
+# PLUGIN_DIFY_INNER_API_KEY 생성
+openssl rand -base64 42
 ```
 
 ### 2. Base 배포
@@ -145,8 +161,10 @@ kubectl delete pv dify-app-storage-pv
 - 모든 Pod는 `orbstack` 노드에 스케줄링됨 (nodeAffinity 설정)
 
 ### 2. Secrets 관리
-- `secrets.yaml`은 `.gitignore`에 추가되어 있음
-- 프로덕션 환경에서는 Kustomize secretGenerator 또는 External Secrets Operator 사용 권장
+- Kustomize `secretGenerator`를 사용하여 `secrets.env`에서 Secret 생성
+- `secrets.env`는 `.gitignore`로 제외됨 (민감정보 보호)
+- `secrets.env.example`은 Git에 포함되어 새로운 환경에서 쉽게 시작 가능
+- 프로덕션 환경에서는 External Secrets Operator 사용도 고려
 
 ### 3. 초기 설정
 - API Pod의 initContainer가 자동으로 DB 마이그레이션 실행

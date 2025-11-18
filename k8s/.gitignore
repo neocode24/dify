@@ -1,5 +1,6 @@
 # Secrets - 민감 정보 제외
 base/secrets.yaml
+base/secrets.env
 
 # Kustomize 빌드 결과
 kustomization-*.yaml

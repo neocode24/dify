@@ -12,10 +12,9 @@ resources:
   - pv-hostpath.yaml
   - pv-plugin-storage.yaml
 
-  # ConfigMaps and Secrets
+  # ConfigMaps
   - configmap-env.yaml
   - configmap-nginx.yaml
-  - secrets.yaml
 
   # PostgreSQL
   - postgresql/pvc.yaml
@@ -62,6 +61,17 @@ resources:
   - plugin-daemon/pvc.yaml
   - plugin-daemon/deployment.yaml
   - plugin-daemon/service.yaml
+
+# Secrets Generator (secrets.env는 .gitignore로 제외)
+secretGenerator:
+  - name: dify-secrets
+    namespace: dify
+    envs:
+      - secrets.env
+    options:
+      labels:
+        app.kubernetes.io/name: dify
+        app.kubernetes.io/component: secrets
 
 labels:
   - pairs:
